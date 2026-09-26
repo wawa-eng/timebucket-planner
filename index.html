@@ -7,6 +7,7 @@
     <style>
         :root {
             --primary-color: #1E3F66;
+            --work-color: #D97706; /* 仕事用カラー（オレンジ系） */
             --bg-color: #f4f6f9;
             --card-bg: #ffffff;
             --text-color: #333333;
@@ -72,10 +73,22 @@
         .add-form {
             display: flex;
             gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .add-form select {
+            padding: 12px 14px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 0.95rem;
+            outline: none;
+            background-color: #fff;
+            cursor: pointer;
         }
 
         .add-form input[type="text"] {
             flex-grow: 1;
+            min-width: 180px;
             padding: 12px 16px;
             border: 1px solid var(--border-color);
             border-radius: 8px;
@@ -84,7 +97,7 @@
             transition: border-color 0.2s;
         }
 
-        .add-form input[type="text"]:focus {
+        .add-form input[type="text"]:focus, .add-form select:focus {
             border-color: var(--primary-color);
         }
 
@@ -201,7 +214,6 @@
         .item-card {
             background: #ffffff;
             border: 1px solid var(--border-color);
-            border-left: 4px solid var(--primary-color);
             padding: 12px;
             margin-bottom: 10px;
             border-radius: 6px;
@@ -215,6 +227,15 @@
             transition: transform 0.1s, box-shadow 0.1s;
         }
 
+        /* カテゴリごとの左ボーダー色 */
+        .item-card.category-private {
+            border-left: 4px solid var(--primary-color);
+        }
+
+        .item-card.category-work {
+            border-left: 4px solid var(--work-color);
+        }
+
         .item-card:active {
             cursor: grabbing;
         }
@@ -223,10 +244,34 @@
             opacity: 0.4;
         }
 
+        .item-content {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            flex-grow: 1;
+            word-break: break-all;
+        }
+
+        .item-badge {
+            font-size: 0.7rem;
+            padding: 1px 6px;
+            border-radius: 4px;
+            width: fit-content;
+            font-weight: bold;
+        }
+
+        .category-private .item-badge {
+            background-color: #e0f2fe;
+            color: var(--primary-color);
+        }
+
+        .category-work .item-badge {
+            background-color: #fef3c7;
+            color: var(--work-color);
+        }
+
         .item-text {
             font-size: 0.95rem;
-            word-break: break-all;
-            flex-grow: 1;
         }
 
         .delete-btn {
@@ -303,7 +348,11 @@
         <div class="add-box">
             <h2>やりたいことを追加</h2>
             <form class="add-form" onsubmit="addItem(event)">
-                <input type="text" id="item-input" placeholder="例：オーロラを見る、世界一周..." required autocomplete="off">
+                <select id="item-category">
+                    <option value="private">プライベート</option>
+                    <option value="work">仕事</option>
+                </select>
+                <input type="text" id="item-input" placeholder="例：オーロラを見る、事業展開..." required autocomplete="off">
                 <button type="submit">追加</button>
             </form>
         </div>
@@ -327,8 +376,8 @@
     // 5年単位のバケット定義（初期データ）
     let boardData = JSON.parse(localStorage.getItem('timeBucket5YearData')) || {
         pool: [
-            { id: 'item-1', text: 'キャンプを始める' },
-            { id: 'item-2', text: '事業の基盤固めとデジタル化の推進' }
+            { id: 'item-1', text: 'キャンプを始める', category: 'private' },
+            { id: 'item-2', text: '事業の基盤固めとデジタル化の推進', category: 'work' }
         ],
         buckets: [
             { id: 'b-20-25', title: '20〜25歳', items: [] },
@@ -389,7 +438,8 @@
 
     function createItemElement(item) {
         const div = document.createElement('div');
-        div.className = 'item-card';
+        const category = item.category || 'private';
+        div.className = `item-card category-${category}`;
         div.draggable = true;
         div.dataset.id = item.id;
 
@@ -404,8 +454,13 @@
             document.querySelectorAll('.bucket-column').forEach(c => c.classList.remove('drag-over'));
         });
 
+        const badgeText = category === 'work' ? '仕事' : 'プライベート';
+
         div.innerHTML = `
-            <span class="item-text">${escapeHtml(item.text)}</span>
+            <div class="item-content">
+                <span class="item-badge">${badgeText}</span>
+                <span class="item-text">${escapeHtml(item.text)}</span>
+            </div>
             <button class="delete-btn" onclick="deleteItem('${item.id}')" title="削除">&times;</button>
         `;
         return div;
@@ -463,11 +518,14 @@
     function addItem(e) {
         e.preventDefault();
         const input = document.getElementById('item-input');
+        const categorySelect = document.getElementById('item-category');
         const text = input.value.trim();
+        
         if (text) {
             const newItem = {
                 id: 'item-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7),
-                text: text
+                text: text,
+                category: categorySelect.value
             };
             boardData.pool.push(newItem);
             input.value = '';
@@ -497,7 +555,6 @@
                 : `「${bucket.title}」を削除しますか？`;
 
             if (confirm(confirmMsg)) {
-                // バケットに入っていたアイテムをすべてプール（やりたいことリスト）に戻す
                 if (bucket.items.length > 0) {
                     boardData.pool.push(...bucket.items);
                 }
