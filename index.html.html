@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>タイムバケット・プランナー - DIE WITH ZERO</title>
+    <style>
+        :root {
+            --primary-color: #1E3F66;
+            --bg-color: #f4f6f9;
+            --card-bg: #ffffff;
+            --text-color: #333333;
+            --border-color: #e2e8f0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        header h1 {
+            color: var(--primary-color);
+            margin-bottom: 5px;
+            font-size: 2rem;
+        }
+
+        header p {
+            color: #666;
+            font-size: 0.95rem;
+        }
+
+        /* 操作パネル（やりたいこと追加 ＋ バケット追加） */
+        .controls-section {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin-bottom: 35px;
+        }
+
+        .add-box {
+            background: var(--card-bg);
+            flex: 1;
+            max-width: 600px;
+            min-width: 300px;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        }
+
+        .add-box h2 {
+            font-size: 1.1rem;
+            color: var(--primary-color);
+            margin-top: 0;
+            margin-bottom: 12px;
+        }
+
+        .add-form {
+            display: flex;
+            gap: 10px;
+        }
+
+        .add-form input[type="text"] {
+            flex-grow: 1;
+            padding: 12px 16px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .add-form input[type="text"]:focus {
+            border-color: var(--primary-color);
+        }
+
+        .add-form button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: bold;
+            transition: opacity 0.2s;
+        }
+
+        .add-form button:hover {
+            opacity: 0.85;
+        }
+
+        .action-box {
+            background: var(--card-bg);
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-width: 200px;
+        }
+
+        .action-box h2 {
+            font-size: 1.1rem;
+            color: var(--primary-color);
+            margin-top: 0;
+            margin-bottom: 12px;
+        }
+
+        .bucket-add-btn {
+            background-color: #27ae60;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: bold;
+            transition: opacity 0.2s;
+            width: 100%;
+        }
+
+        .bucket-add-btn:hover {
+            opacity: 0.85;
+        }
+
+        /* グリッドレイアウト（やりたいことリスト ＋ 各5年単位バケット） */
+        .board-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+
+        /* バケットカード（ドロップゾーン） */
+        .bucket-column {
+            background: var(--card-bg);
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.04);
+            display: flex;
+            flex-direction: column;
+            min-height: 320px;
+            border: 2px dashed transparent;
+            transition: border-color 0.2s, background-color 0.2s;
+        }
+
+        .bucket-column.drag-over {
+            border-color: var(--primary-color);
+            background-color: #f0f4f8;
+        }
+
+        .bucket-header {
+            background: #f8fafc;
+            padding: 15px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: var(--primary-color);
+            text-align: center;
+            border-top-left-radius: 10px;
+            border-top-right-radius: 10px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* 「やりたいことリスト」専用の見た目 */
+        .bucket-column.pool-column {
+            border: 2px solid #cbd5e1;
+        }
+
+        .bucket-column.pool-column .bucket-header {
+            background: #eef2f7;
+            color: #1e293b;
+        }
+
+        .items-container {
+            padding: 15px;
+            flex-grow: 1;
+            overflow-y: auto;
+            max-height: 450px;
+        }
+
+        /* ドラッグ可能なアイテムカード */
+        .item-card {
+            background: #ffffff;
+            border: 1px solid var(--border-color);
+            border-left: 4px solid var(--primary-color);
+            padding: 12px;
+            margin-bottom: 10px;
+            border-radius: 6px;
+            cursor: grab;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+            user-select: none;
+            transition: transform 0.1s, box-shadow 0.1s;
+        }
+
+        .item-card:active {
+            cursor: grabbing;
+        }
+
+        .item-card.dragging {
+            opacity: 0.4;
+        }
+
+        .item-text {
+            font-size: 0.95rem;
+            word-break: break-all;
+            flex-grow: 1;
+        }
+
+        .delete-btn {
+            background: none;
+            border: none;
+            color: #cbd5e1;
+            cursor: pointer;
+            font-size: 1.2rem;
+            padding: 0;
+            line-height: 1;
+            transition: color 0.2s;
+        }
+
+        .delete-btn:hover {
+            color: #ef4444;
+        }
+
+        .bucket-delete-btn {
+            background: none;
+            border: none;
+            color: #94a3b8;
+            cursor: pointer;
+            font-size: 0.9rem;
+            padding: 2px 6px;
+            border-radius: 4px;
+            transition: background-color 0.2s, color 0.2s;
+        }
+
+        .bucket-delete-btn:hover {
+            background-color: #fee2e2;
+            color: #ef4444;
+        }
+
+        .empty-hint {
+            color: #94a3b8;
+            font-size: 0.85rem;
+            text-align: center;
+            margin-top: 50px;
+            pointer-events: none;
+        }
+
+        /* フッター操作ボタン */
+        .footer-actions {
+            text-align: center;
+            margin-bottom: 50px;
+        }
+
+        .reset-btn {
+            background-color: #ef4444;
+            color: white;
+            border: none;
+            padding: 10px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: opacity 0.2s;
+        }
+
+        .reset-btn:hover {
+            opacity: 0.85;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>タイムバケット・プランナー</h1>
+        <p>『DIE WITH ZERO』より — 人生でやりたいことを5年単位の年代ごとに計画しよう</p>
+    </header>
+
+    <!-- 操作パネル（やりたいこと追加 ＆ バケット追加） -->
+    <div class="controls-section">
+        <div class="add-box">
+            <h2>やりたいことを追加</h2>
+            <form class="add-form" onsubmit="addItem(event)">
+                <input type="text" id="item-input" placeholder="例：オーロラを見る、事業の基盤固め..." required autocomplete="off">
+                <button type="submit">追加</button>
+            </form>
+        </div>
+        <div class="action-box">
+            <h2>期間の管理</h2>
+            <button class="bucket-add-btn" onclick="addBucket()">+ バケットを追加</button>
+        </div>
+    </div>
+
+    <!-- カンバンボード（やりたいことリスト ＋ 5年単位バケット） -->
+    <div class="board-grid" id="board-grid">
+        <!-- 動的に生成されます -->
+    </div>
+
+    <div class="footer-actions">
+        <button class="reset-btn" onclick="resetData()">すべてのデータをリセット</button>
+    </div>
+</div>
+
+<script>
+    // 5年単位のバケット定義（初期データ）
+    let boardData = JSON.parse(localStorage.getItem('timeBucket5YearData')) || {
+        pool: [
+            { id: 'item-1', text: 'キャンプを始める' },
+            { id: 'item-2', text: '事業の基盤固めとデジタル化の推進' }
+        ],
+        buckets: [
+            { id: 'b-20-25', title: '20〜25歳', items: [] },
+            { id: 'b-25-30', title: '25〜30歳', items: [{ id: 'item-3', text: 'オリジナル商品のブランド化' }] },
+            { id: 'b-30-35', title: '30〜35歳', items: [] },
+            { id: 'b-35-40', title: '35〜40歳', items: [] },
+            { id: 'b-40-45', title: '40〜45歳', items: [] },
+            { id: 'b-45-50', title: '45〜50歳', items: [] },
+            { id: 'b-50-55', title: '50〜55歳', items: [] },
+            { id: 'b-55-60', title: '55〜60歳', items: [] },
+            { id: 'b-60-65', title: '60〜65歳', items: [] },
+            { id: 'b-65-70', title: '65〜70歳', items: [] },
+            { id: 'b-70-plus', title: '70歳以上', items: [] }
+        ]
+    };
+
+    let draggedItemId = null;
+
+    function renderBoard() {
+        const grid = document.getElementById('board-grid');
+        grid.innerHTML = '';
+
+        // 1. 「やりたいことリスト（プール）」カラムの描画
+        const poolColumn = document.createElement('div');
+        poolColumn.className = 'bucket-column pool-column';
+        poolColumn.innerHTML = `
+            <div class="bucket-header">やりたいことリスト</div>
+            <div class="items-container" ondragover="allowDrop(event)" ondragleave="removeDropStyle(event)" ondrop="dropToColumn(event, 'pool')">
+                ${boardData.pool.length === 0 ? '<div class="empty-hint">ここにアイデアが追加されます</div>' : ''}
+            </div>
+        `;
+        const poolItemsContainer = poolColumn.querySelector('.items-container');
+        boardData.pool.forEach(item => {
+            poolItemsContainer.appendChild(createItemElement(item));
+        });
+        grid.appendChild(poolColumn);
+
+        // 2. 各5年単位バケットカラムの描画
+        boardData.buckets.forEach(bucket => {
+            const col = document.createElement('div');
+            col.className = 'bucket-column';
+            col.innerHTML = `
+                <div class="bucket-header">
+                    <span>${escapeHtml(bucket.title)}</span>
+                    <button class="bucket-delete-btn" onclick="deleteBucket('${bucket.id}')" title="このバケットを削除">&times; 削除</button>
+                </div>
+                <div class="items-container" ondragover="allowDrop(event)" ondragleave="removeDropStyle(event)" ondrop="dropToColumn(event, '${bucket.id}')">
+                    ${bucket.items.length === 0 ? '<div class="empty-hint">ここにドラッグ＆ドロップ</div>' : ''}
+                </div>
+            `;
+            const itemsContainer = col.querySelector('.items-container');
+            bucket.items.forEach(item => {
+                itemsContainer.appendChild(createItemElement(item));
+            });
+            grid.appendChild(col);
+        });
+    }
+
+    function createItemElement(item) {
+        const div = document.createElement('div');
+        div.className = 'item-card';
+        div.draggable = true;
+        div.dataset.id = item.id;
+
+        div.addEventListener('dragstart', (e) => {
+            draggedItemId = item.id;
+            setTimeout(() => div.classList.add('dragging'), 0);
+        });
+
+        div.addEventListener('dragend', () => {
+            div.classList.remove('dragging');
+            draggedItemId = null;
+            document.querySelectorAll('.bucket-column').forEach(c => c.classList.remove('drag-over'));
+        });
+
+        div.innerHTML = `
+            <span class="item-text">${escapeHtml(item.text)}</span>
+            <button class="delete-btn" onclick="deleteItem('${item.id}')" title="削除">&times;</button>
+        `;
+        return div;
+    }
+
+    function allowDrop(e) {
+        e.preventDefault();
+        const container = e.currentTarget;
+        container.closest('.bucket-column').classList.add('drag-over');
+    }
+
+    function removeDropStyle(e) {
+        const container = e.currentTarget;
+        container.closest('.bucket-column').classList.remove('drag-over');
+    }
+
+    function dropToColumn(e, targetContainerId) {
+        e.preventDefault();
+        const column = e.currentTarget.closest('.bucket-column');
+        column.classList.remove('drag-over');
+
+        if (!draggedItemId) return;
+
+        let foundItem = null;
+
+        // プールから探し出して削除
+        const poolIndex = boardData.pool.findIndex(i => i.id === draggedItemId);
+        if (poolIndex !== -1) {
+            foundItem = boardData.pool.splice(poolIndex, 1)[0];
+        } else {
+            // 各バケットから探し出して削除
+            for (let bucket of boardData.buckets) {
+                const itemIndex = bucket.items.findIndex(i => i.id === draggedItemId);
+                if (itemIndex !== -1) {
+                    foundItem = bucket.items.splice(itemIndex, 1)[0];
+                    break;
+                }
+            }
+        }
+
+        // ドロップ先に追加
+        if (foundItem) {
+            if (targetContainerId === 'pool') {
+                boardData.pool.push(foundItem);
+            } else {
+                const targetBucket = boardData.buckets.find(b => b.id === targetContainerId);
+                if (targetBucket) {
+                    targetBucket.items.push(foundItem);
+                }
+            }
+            saveAndRender();
+        }
+    }
+
+    function addItem(e) {
+        e.preventDefault();
+        const input = document.getElementById('item-input');
+        const text = input.value.trim();
+        if (text) {
+            const newItem = {
+                id: 'item-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7),
+                text: text
+            };
+            boardData.pool.push(newItem);
+            input.value = '';
+            saveAndRender();
+        }
+    }
+
+    function addBucket() {
+        const title = prompt('追加する期間の名称を入力してください（例: 70〜75歳）:');
+        if (title && title.trim() !== '') {
+            const newBucket = {
+                id: 'b-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7),
+                title: title.trim(),
+                items: []
+            };
+            boardData.buckets.push(newBucket);
+            saveAndRender();
+        }
+    }
+
+    function deleteBucket(bucketId) {
+        const bucketIndex = boardData.buckets.findIndex(b => b.id === bucketId);
+        if (bucketIndex !== -1) {
+            const bucket = boardData.buckets[bucketIndex];
+            const confirmMsg = bucket.items.length > 0 
+                ? `「${bucket.title}」を削除しますか？\n含まれている ${bucket.items.length} 件のアイテムは「やりたいことリスト」に戻ります。`
+                : `「${bucket.title}」を削除しますか？`;
+
+            if (confirm(confirmMsg)) {
+                // バケットに入っていたアイテムをすべてプール（やりたいことリスト）に戻す
+                if (bucket.items.length > 0) {
+                    boardData.pool.push(...bucket.items);
+                }
+                boardData.buckets.splice(bucketIndex, 1);
+                saveAndRender();
+            }
+        }
+    }
+
+    function deleteItem(itemId) {
+        const poolIndex = boardData.pool.findIndex(i => i.id === itemId);
+        if (poolIndex !== -1) {
+            boardData.pool.splice(poolIndex, 1);
+        } else {
+            for (let bucket of boardData.buckets) {
+                const itemIndex = bucket.items.findIndex(i => i.id === itemId);
+                if (itemIndex !== -1) {
+                    bucket.items.splice(itemIndex, 1);
+                    break;
+                }
+            }
+        }
+        saveAndRender();
+    }
+
+    function saveAndRender() {
+        localStorage.setItem('timeBucket5YearData', JSON.stringify(boardData));
+        renderBoard();
+    }
+
+    function resetData() {
+        if (confirm('すべてのデータが初期化されます。よろしいですか？')) {
+            localStorage.removeItem('timeBucket5YearData');
+            location.reload();
+        }
+    }
+
+    function escapeHtml(str) {
+        return str.replace(/[&<>"]/g, function(match) {
+            return {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;'
+            }[match];
+        });
+    }
+
+    // 初期描画
+    renderBoard();
+</script>
+
+</body>
+</html>
